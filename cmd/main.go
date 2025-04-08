@@ -121,12 +121,12 @@ func main() {
 	r.HandleFunc("/api/auth/signup", mockSignUpHandler).Methods("POST")
 	r.HandleFunc("/api/auth/confirm", mockConfirmSignUpHandler).Methods("POST")
 	r.HandleFunc("/api/auth/signin", mockSignInHandler).Methods("POST")
+	r.HandleFunc("/api/files", uploadFileHandler).Methods("POST")
 
 	// Protected endpoints (auth required)
 	api := r.PathPrefix("/api").Subrouter()
 	api.Use(auth.MockAuthMiddleware)
 
-	api.HandleFunc("/files", uploadFileHandler).Methods("POST")
 	api.HandleFunc("/files/{id}", getFileHandler).Methods("GET")
 	api.HandleFunc("/files/{id}/result", getResultHandler).Methods("GET")
 
