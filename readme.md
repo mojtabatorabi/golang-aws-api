@@ -142,14 +142,26 @@ System Flow
 
 This architecture provides:
 
+<<<<<<< HEAD
     Scalable file processing
     Asynchronous operations
     Persistent storage
     Local development environment
     Complete testing coverage
+=======
+***cognito***
+
+
+
+curl -X POST http://localhost:8080/api/auth/signin \
+     -H "Content-Type: application/json" \
+     -d '{"username": "testuser3", "password": "testpass123"}'
+{"access_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM=","id_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM="}
+>>>>>>> c0b89cff25e8c78c2db5123b172475893d3a001a
 
 cognito
 
+<<<<<<< HEAD
 curl -X POST http://localhost:8080/api/auth/signin
 -H "Content-Type: application/json"
 -d '{"username": "testuser3", "password": "testpass123"}' {"access_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM=","id_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM="}
@@ -173,3 +185,43 @@ curl -X POST http://localhost:8080/api/files
 -H "Content-Type: application/json"
 -H "Authorization: Bearer JoF4FJuhO87dEQN7vWhmBTFE+l/sZ0fr4jiihct5m5w="
 -d '{"name": "test76767676767676-1.txt", "content": "Hello, World!"}'
+=======
+
+
+sudo kill -9 $(sudo lsof -t -i:8080)
+
+
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASSWORD=postgres
+export DB_NAME=postgres
+export ENV=local
+export S3_BUCKET_NAME=my-test-bucket
+export LOCALSTACK_HOST=localhost
+export LOCALSTACK_PORT=4566
+
+docker compose up -d
+*singup user*
+   curl -X POST http://localhost:8080/api/auth/signup \
+     -H "Content-Type: application/json" \
+     -d '{"username": "testuser6", "password": "testpass123", "email": "test@example.com"}'
+*confirm*
+   curl -X POST http://localhost:8080/api/auth/confirm \
+     -H "Content-Type: application/json" \
+     -d '{"username": "testuser6", "code": "123456"}'
+*signin*
+   curl -X POST http://localhost:8080/api/auth/signin \
+     -H "Content-Type: application/json" \
+     -d '{"username": "testuser6", "password": "testpass123"}'
+*upload file*
+   curl -X POST http://localhost:8080/api/files \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+     -d '{"name": "test767676.txt", "content": "Hello, World!"}'
+
+   curl -X POST http://localhost:8080/api/files \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer JoF4FJuhO87dEQN7vWhmBTFE+l/sZ0fr4jiihct5m5w=" \
+     -d '{"name": "test76767676767676-1.txt", "content": "Hello, World!"}'
+>>>>>>> c0b89cff25e8c78c2db5123b172475893d3a001a
