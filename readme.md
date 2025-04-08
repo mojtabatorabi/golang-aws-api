@@ -159,10 +159,10 @@ Would you like me to explain any specific file in more detail?
 {"access_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM=","id_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM="}
 
 
---------------------------
+
 
 sudo kill -9 $(sudo lsof -t -i:8080)
---------------
+
 
 export DB_HOST=localhost
 export DB_PORT=5432
