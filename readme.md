@@ -152,8 +152,8 @@ This architecture provides:
 - Local development environment
 - Complete testing coverage
 
-Would you like me to explain any specific file in more detail?
------------------------------------curl -X POST http://localhost:8080/api/auth/signin \
+***cognito***
+curl -X POST http://localhost:8080/api/auth/signin \
      -H "Content-Type: application/json" \
      -d '{"username": "testuser3", "password": "testpass123"}'
 {"access_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM=","id_token":"HlHxSdxbzk/i5V5M6+G5evPSMpF7vr8ahcmOxhtJfDM="}
@@ -173,27 +173,26 @@ export ENV=local
 export S3_BUCKET_NAME=my-test-bucket
 export LOCALSTACK_HOST=localhost
 export LOCALSTACK_PORT=4566
----------------
+
 docker compose up -d
-go run cmd/main.go
---------------singup user-----------
+*singup user*
    curl -X POST http://localhost:8080/api/auth/signup \
      -H "Content-Type: application/json" \
      -d '{"username": "testuser6", "password": "testpass123", "email": "test@example.com"}'
--------------------confirm-----------
+*confirm*
    curl -X POST http://localhost:8080/api/auth/confirm \
      -H "Content-Type: application/json" \
      -d '{"username": "testuser6", "code": "123456"}'
------------signin---------------
+*signin*
    curl -X POST http://localhost:8080/api/auth/signin \
      -H "Content-Type: application/json" \
      -d '{"username": "testuser6", "password": "testpass123"}'
--------------upload file---------------------
+*upload file*
    curl -X POST http://localhost:8080/api/files \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer YOUR_TOKEN_HERE" \
      -d '{"name": "test767676.txt", "content": "Hello, World!"}'
-----------------------
+
    curl -X POST http://localhost:8080/api/files \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer JoF4FJuhO87dEQN7vWhmBTFE+l/sZ0fr4jiihct5m5w=" \
