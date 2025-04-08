@@ -50,4 +50,34 @@ aws --endpoint-url=http://localhost:4566 lambda create-event-source-mapping \
   --batch-size 1 \
   --event-source-arn arn:aws:sqs:us-east-1:000000000000:my-queue
 
+# Create Cognito User Pool
+echo "Creating Cognito User Pool..."
+USER_POOL_ID=$(aws --endpoint-url=http://localhost:4566 cognito-idp create-user-pool \
+  --pool-name "local-user-pool" \
+  --policies '{"PasswordPolicy":{"MinimumLength":8,"RequireUppercase":true,"RequireLowercase":true,"RequireNumbers":true,"RequireSymbols":true}}' \
+  --schema '[{"Name":"email","Required":true,"Mutable":true}]' \
+  --auto-verified-attributes email \
+  --query 'UserPool.Id' \
+  --output text)
+
+echo "Created User Pool: $USER_POOL_ID"
+
+# Create App Client
+echo "Creating App Client..."
+CLIENT_ID=$(aws --endpoint-url=http://localhost:4566 cognito-idp create-user-pool-client \
+  --user-pool-id "$USER_POOL_ID" \
+  --client-name "local-client" \
+  --no-generate-secret \
+  --explicit-auth-flows "ALLOW_USER_PASSWORD_AUTH" "ALLOW_REFRESH_TOKEN_AUTH" \
+  --query 'UserPoolClient.ClientId' \
+  --output text)
+
+echo "Created App Client: $CLIENT_ID"
+
+# Export Cognito environment variables
+export COGNITO_USER_POOL_ID=$USER_POOL_ID
+export COGNITO_CLIENT_ID=$CLIENT_ID
+echo "export COGNITO_USER_POOL_ID=$USER_POOL_ID" > .env
+echo "export COGNITO_CLIENT_ID=$CLIENT_ID" >> .env
+
 echo "AWS resources setup complete!"

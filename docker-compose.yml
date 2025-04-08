@@ -21,6 +21,8 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=postgres
+      - COGNITO_USER_POOL_ID=${COGNITO_USER_POOL_ID:-us-east-1_testpool}
+      - COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID:-1234567890abcdef}
     networks:
       - app-network
 
@@ -60,7 +62,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,sqs,lambda
+      - SERVICES=s3,sqs,lambda,cognito
       - DEFAULT_REGION=us-east-1
       - LAMBDA_EXECUTOR=docker-reuse
       - DOCKER_HOST=unix:///var/run/docker.sock

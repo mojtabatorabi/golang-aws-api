@@ -1,0 +1,302 @@
+// main.go
+package main
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
+	_ "github.com/lib/pq"
+)
+
+// Global variables
+var (
+	s3Client    *s3.Client
+	sqsClient   *sqs.Client
+	sqsQueueURL string
+	bucketName  string
+	db          *sql.DB
+)
+
+// FileData represents the data structure for file uploads
+type FileData struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ProcessingResult represents the result from Lambda processing
+type ProcessingResult struct {
+	ID        string    `json:"id"`
+	Status    string    `json:"status"`
+	Result    string    `json:"result"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func init() {
+	// Set up AWS configuration
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		if os.Getenv("ENV") == "local" {
+			return aws.Endpoint{
+				URL:           "http://localhost:4566",
+				SigningRegion: "us-east-1",
+			}, nil
+		}
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+	})
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion("us-east-1"),
+		config.WithEndpointResolverWithOptions(customResolver),
+	)
+
+	if os.Getenv("ENV") == "local" {
+		cfg.Credentials = credentials.NewStaticCredentialsProvider("test", "test", "")
+	}
+
+	if err != nil {
+		log.Fatalf("Failed to load AWS configuration: %v", err)
+	}
+
+	s3Client = s3.NewFromConfig(cfg)
+	sqsClient = sqs.NewFromConfig(cfg)
+
+	// Set bucket and queue names
+	bucketName = os.Getenv("S3_BUCKET_NAME")
+	if bucketName == "" {
+		bucketName = "my-test-bucket"
+	}
+	sqsQueueURL = os.Getenv("SQS_QUEUE_URL")
+	if sqsQueueURL == "" {
+		sqsQueueURL = "http://localhost:4566/000000000000/my-queue"
+	}
+
+	// Set up PostgreSQL connection
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "postgres"
+	}
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbPassword == "" {
+		dbPassword = "postgres"
+	}
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "postgres"
+	}
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "5432"
+	}
+
+	dbInfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbPassword, dbName)
+
+	var dbErr error
+	db, dbErr = sql.Open("postgres", dbInfo)
+	if dbErr != nil {
+		log.Fatalf("Failed to connect to database: %v", dbErr)
+	}
+
+	// Test database connection
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
+	}
+
+	// Create tables if not exist
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS files (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			s3_key TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW()
+		);
+		
+		CREATE TABLE IF NOT EXISTS processing_results (
+			id TEXT PRIMARY KEY,
+			file_id TEXT NOT NULL REFERENCES files(id),
+			status TEXT NOT NULL,
+			result TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT NOW()
+		);
+	`)
+	if err != nil {
+		log.Fatalf("Failed to create tables: %v", err)
+	}
+}
+
+func main() {
+	r := mux.NewRouter()
+
+	// API endpoints
+	r.HandleFunc("/api/files", uploadFileHandler).Methods("POST")
+	r.HandleFunc("/api/files/{id}", getFileHandler).Methods("GET")
+	r.HandleFunc("/api/files/{id}/result", getResultHandler).Methods("GET")
+
+	// Start server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
+}
+
+// uploadFileHandler handles file uploads to S3
+func uploadFileHandler(w http.ResponseWriter, r *http.Request) {
+	var fileData FileData
+	if err := json.NewDecoder(r.Body).Decode(&fileData); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Generate unique ID if not provided
+	if fileData.ID == "" {
+		fileData.ID = uuid.New().String()
+	}
+
+	fileData.CreatedAt = time.Now()
+
+	// Save file metadata to database
+	s3Key := fmt.Sprintf("files/%s/%s", fileData.ID, fileData.Name)
+	_, err := db.Exec(
+		"INSERT INTO files (id, name, s3_key, created_at) VALUES ($1, $2, $3, $4)",
+		fileData.ID, fileData.Name, s3Key, fileData.CreatedAt,
+	)
+	if err != nil {
+		log.Printf("Error saving to database: %v", err)
+		http.Error(w, "Error saving file metadata", http.StatusInternalServerError)
+		return
+	}
+
+	// Upload content to S3
+	_, err = s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(s3Key),
+		Body:   strings.NewReader(fileData.Content),
+	})
+	if err != nil {
+		log.Printf("Error uploading to S3: %v", err)
+		http.Error(w, "Error uploading file", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"id":      fileData.ID,
+		"status":  "uploaded",
+		"message": "File uploaded successfully and processing started",
+	})
+}
+
+// getFileHandler retrieves file information
+func getFileHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fileID := vars["id"]
+
+	var fileData FileData
+	var s3Key string
+
+	err := db.QueryRow(
+		"SELECT id, name, s3_key, created_at FROM files WHERE id = $1",
+		fileID,
+	).Scan(&fileData.ID, &fileData.Name, &s3Key, &fileData.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "File not found", http.StatusNotFound)
+		} else {
+			log.Printf("Database query error: %v", err)
+			http.Error(w, "Error retrieving file", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Get file content from S3
+	result, err := s3Client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(s3Key),
+	})
+	if err != nil {
+		log.Printf("Error retrieving from S3: %v", err)
+		http.Error(w, "Error retrieving file content", http.StatusInternalServerError)
+		return
+	}
+	defer result.Body.Close()
+
+	// Read content
+	content, err := io.ReadAll(result.Body)
+	if err != nil {
+		log.Printf("Error reading S3 content: %v", err)
+		http.Error(w, "Error reading file content", http.StatusInternalServerError)
+		return
+	}
+	fileData.Content = string(content)
+
+	// Return file data
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(fileData)
+}
+
+// getResultHandler retrieves processing results
+func getResultHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fileID := vars["id"]
+
+	var result ProcessingResult
+
+	err := db.QueryRow(
+		"SELECT id, status, result, created_at FROM processing_results WHERE file_id = $1",
+		fileID,
+	).Scan(&result.ID, &result.Status, &result.Result, &result.CreatedAt)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// Check if file exists first
+			var exists bool
+			err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM files WHERE id = $1)", fileID).Scan(&exists)
+			if err != nil || !exists {
+				http.Error(w, "File not found", http.StatusNotFound)
+				return
+			}
+
+			// File exists but processing not complete
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{
+				"status":  "processing",
+				"message": "Processing not complete or not started",
+			})
+			return
+		} else {
+			log.Printf("Database query error: %v", err)
+			http.Error(w, "Error retrieving processing result", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Return processing result
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
