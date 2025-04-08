@@ -1,0 +1,11 @@
+FROM golang:1.20-alpine
+
+# Copy the entire project
+COPY . /app
+WORKDIR /app
+
+# Build the lambda function
+RUN cd lambda && go build -o /main
+
+# Set the CMD to your handler
+CMD [ "/main" ] 
