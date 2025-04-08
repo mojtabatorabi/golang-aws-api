@@ -142,7 +142,7 @@ System Flow
 
 This architecture provides:
 
-<<<<<<< HEAD
+
     Scalable file processing
     Asynchronous operations
     Persistent storage
@@ -185,7 +185,7 @@ curl -X POST http://localhost:8080/api/files
 -H "Content-Type: application/json"
 -H "Authorization: Bearer JoF4FJuhO87dEQN7vWhmBTFE+l/sZ0fr4jiihct5m5w="
 -d '{"name": "test76767676767676-1.txt", "content": "Hello, World!"}'
-=======
+
 
 
 sudo kill -9 $(sudo lsof -t -i:8080)
@@ -224,4 +224,13 @@ docker compose up -d
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer JoF4FJuhO87dEQN7vWhmBTFE+l/sZ0fr4jiihct5m5w=" \
      -d '{"name": "test76767676767676-1.txt", "content": "Hello, World!"}'
->>>>>>> c0b89cff25e8c78c2db5123b172475893d3a001a
+
+** uploade file to s3 without token*** 
+     
+     curl -X POST http://localhost:8080/api/files \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test.txt",
+    "content": "Hello, World!"
+  }'
+
