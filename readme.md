@@ -225,7 +225,7 @@ docker compose up -d
      -H "Authorization: Bearer JoF4FJuhO87dEQN7vWhmBTFE+l/sZ0fr4jiihct5m5w=" \
      -d '{"name": "test76767676767676-1.txt", "content": "Hello, World!"}'
 
-** uploade file to s3 without token*** 
+** uploade file to s3 without token**
      
      curl -X POST http://localhost:8080/api/files \
   -H "Content-Type: application/json" \
