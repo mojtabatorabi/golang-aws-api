@@ -153,6 +153,9 @@ This architecture provides:
 - Complete testing coverage
 
 ***cognito***
+
+
+
 curl -X POST http://localhost:8080/api/auth/signin \
      -H "Content-Type: application/json" \
      -d '{"username": "testuser3", "password": "testpass123"}'
