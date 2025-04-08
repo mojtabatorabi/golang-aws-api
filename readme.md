@@ -7,49 +7,8 @@
           $ cd /cmd/report
           $ go run main.go
 
-
-
 -------------------------------------------
-
-I'll help you understand all the files in your project. Let me first list all the files and directories:
-
-
-
-Ran tool
-Let me check each directory to understand the project structure better:
-
 1. First, let's look at the `cmd` directory:
-
-
-
-
-Ran tool
-2. Let's check the `database` directory:
-
-
-
-
-
-Ran tool
-3. Let's check the `lambda` directory:
-
-
-
-
-
-
-Ran tool
-4. Let's check the `tests` directory:
-
-
-
-
-
-
-
-
-Ran tool
-Now, let me explain each file and its purpose:
 
 ### Project Structure Overview
 
@@ -96,9 +55,8 @@ This is a Go-based AWS API project that uses LocalStack for local development. H
 
 This architecture allows for scalable file processing with AWS services, all running locally for development using LocalStack.
 
-Would you like me to explain any specific component in more detail?
+explain any specific component in more detail:
 ---------------
-I'll explain each file in your project in detail. Let me first get a complete list of all files:
 
 
 
@@ -194,4 +152,3 @@ This architecture provides:
 - Local development environment
 - Complete testing coverage
 
-Would you like me to explain any specific file in more detail?
